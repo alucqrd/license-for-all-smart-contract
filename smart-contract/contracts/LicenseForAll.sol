@@ -12,7 +12,7 @@ contract LicenseForAllBase {
         uint256 licenseTypeId;
         uint64 creationTime;
         // Cut creator takes on each resale, measured in basis points (1/100 of a percent).
-        // Values 0-10,000 map to 0%-100%
+        // Values 0-10,000 map to 0%-100%.
         uint256 cutOnResale;
     }
 
@@ -22,16 +22,16 @@ contract LicenseForAllBase {
         uint64 creationTime;
     }
 
-    // Array containing every licenses
+    // Array containing every licenses.
     License[] licenses;
 
-    // Array containing every license type id with creator address associated
+    // Array containing every license type id with creator address associated.
     address[] licenseTypeIdToCreator;
 
-    // Mapping of each license and user association
+    // Mapping of each license and user association.
     mapping (uint256 => address) public licenseIndexToOwner;
 
-    // Mapping from license ID to approved address
+    // Mapping from license ID to approved address.
     mapping (uint256 => SaleApproval) public licenseIndexToApproved;
 
     // @dev A mapping from owner address to count of tokens that address owns.
@@ -40,9 +40,9 @@ contract LicenseForAllBase {
 
     /// @dev Assigns ownership of a specific License to an address.
     function _transfer(address _from, address _to, uint256 _tokenId) internal {
-        // Since the number of licenses is capped to 2^32 we can't overflow this
+        // Since the number of licenses is capped to 2^32 we can't overflow this.
         ownershipTokenCount[_to]++;
-        // transfer ownership
+        // transfer ownership.
         licenseIndexToOwner[_tokenId] = _to;
 
         // When creating new licenses _from is 0x0, but we can't account that address.
@@ -57,11 +57,11 @@ contract LicenseForAllBase {
     /// @dev An internal method that creates a new license type id and associates it with its creator.
     /// @param _creator The address of the creator.
     function _createLicenseTypeId(address _creator) internal returns (uint) {
-        // Increment the licenseTypeIdToCreator array and associate the creator address to new license type id
+        // Increment the licenseTypeIdToCreator array and associate the creator address to new license type id.
         uint256 newLicenseTypeId = licenseTypeIdToCreator.push(_creator) - 1;
         // Let's just be 100% sure we never let this happen.
         require(newLicenseTypeId == uint256(uint32(newLicenseTypeId)));
-        // Return the license type id
+        // Return the license type id.
         return newLicenseTypeId;
     }
 
@@ -70,11 +70,11 @@ contract LicenseForAllBase {
     /// @param _cutOnResale The cut wanted to go back to license creator on resale.
     /// @param _owner The inital owner of this license, must be non-zero.
     function _createLicense(uint256 _licenseTypeId, uint256 _cutOnResale, address _owner) internal returns (uint256) {
-        // Check that cut on resale is under or equal 100%
+        // Check that cut on resale is under or equal 100%.
         require(_cutOnResale <= 10000);
-        // Check that license type id exists
+        // Check that license type id exists.
         require(_licenseTypeId < licenseTypeIdToCreator.length);
-        // Check that the future owner of the new license is the creator
+        // Check that the future owner of the new license is the creator.
         require(licenseTypeIdToCreator[_licenseTypeId] == _owner);
 
         License memory _license = License({
@@ -124,15 +124,20 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
     function _approve(uint256 _tokenId, address _to, uint256 _price) internal {
         address owner = ownerOf(_tokenId);
         require(_to != owner);
+        // Remove any previous sale approval associated to the license id.
         delete licenseIndexToApproved[_tokenId];
 
+        // Create new sale approval data structure.
         SaleApproval memory approval = SaleApproval({
             to: _to,
             price: _price,
             creationTime: uint64(now)
         });
 
+        // Associate sale approval data structure to license id.
         licenseIndexToApproved[_tokenId] = approval;
+
+        // Emit Approval event.
         Approval(owner, _to, _tokenId, _price);
     }
 
@@ -173,15 +178,15 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
         // The contract should never own any licenses. (Just at the moment for testing purpose)
         //require(_to != address(this));
 
-        // Check for approval and valid ownership
+        // Check for approval and valid ownership.
         require(_approvedFor(msg.sender, _tokenId, msg.value));
         require(_owns(_from, _tokenId));
 
-        // Compute and send cut to license creator
+        // Compute and send cut to license creator.
         uint256 cut = msg.value.mul(licenses[_tokenId].cutOnResale.div(10000));
         licenseIndexToOwner[_tokenId].transfer(cut);
 
-        // Transfer payment to seller
+        // Transfer payment to seller.
         _from.transfer(msg.value - cut);
 
         // Reassign ownership (also clears pending approvals and emits Transfer event).
@@ -202,14 +207,14 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
 }
 
 contract LicenseForAllCore is LicenseForAllOwnership {
-    // Set in case the core contract is broken and an upgrade is required
+    // Set in case the core contract is broken and an upgrade is required.
     address public newContractAddress;
 
     function LicenseForAllCore() public {
         // Starts paused.
         paused = true;
 
-        // the creator of the contract is the owner
+        // The creator of the contract is the owner.
         owner = msg.sender;
 
         // This func is be called in contract constructor to generate some testing licenses data, must be removed before live deployment (ofc!!)
@@ -235,7 +240,7 @@ contract LicenseForAllCore is LicenseForAllOwnership {
     ///  be paused indefinitely if such an upgrade takes place.)
     /// @param _v2Address new address
     function setNewAddress(address _v2Address) external onlyOwner whenPaused {
-        // See README.md for updgrade plan
+        // See README.md for updgrade plan.
         newContractAddress = _v2Address;
         ContractUpgrade(_v2Address);
     }
