@@ -1,3 +1,4 @@
+
 pragma solidity ^0.4.18;
 import 'zeppelin-solidity/contracts/lifecycle/Pausable.sol';
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
@@ -18,6 +19,7 @@ contract LicenseForAllBase {
     struct SaleApproval {
         address to;
         uint256 price;
+        uint64 creationTime;
     }
 
     // Array containing every licenses
@@ -111,10 +113,10 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
     }
 
     /// @dev Checks if a given address currently has transferApproval for a particular License.
-    /// @param _claimant the address we are confirming license is approved for.
+    /// @param _claimant the address we are confirming license is approved for. If it is set to 0, it means that anybody can call transferFrom with asked price.
     /// @param _tokenId license id, only valid when > 0
     function _approvedFor(address _claimant, uint256 _tokenId, uint256 _price) internal view returns (bool) {
-        return (licenseIndexToApproved[_tokenId].to == _claimant && licenseIndexToApproved[_tokenId].price <= _price);
+        return ((licenseIndexToApproved[_tokenId].to == _claimant || licenseIndexToApproved[_tokenId].to == 0)  && licenseIndexToApproved[_tokenId].price <= _price);
     }
 
     /// @dev Marks an address as being approved for transferFrom(), overwriting any previous
@@ -122,11 +124,16 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
     function _approve(uint256 _tokenId, address _to, uint256 _price) internal {
         address owner = ownerOf(_tokenId);
         require(_to != owner);
-        if (licenseIndexToApproved[_tokenId].to != 0 || _to != 0) {
-            licenseIndexToApproved[_tokenId].to = _to;
-            licenseIndexToApproved[_tokenId].price = _price;
-            Approval(owner, _to, _tokenId, _price);
-        }
+        delete licenseIndexToApproved[_tokenId];
+
+        SaleApproval memory approval = SaleApproval({
+            to: _to,
+            price: _price,
+            creationTime: uint64(now)
+        });
+
+        licenseIndexToApproved[_tokenId] = approval;
+        Approval(owner, _to, _tokenId, _price);
     }
 
     /// @notice Returns the number of Licenses owned by a specific address.
