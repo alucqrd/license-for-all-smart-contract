@@ -48,13 +48,11 @@ contract LicenseForAllBase {
         Transfer(_from, _to, _tokenId);
     }
 
-    /// @dev An internal method that creates a new license and stores it. This
-    ///  method doesn't do any checking and should only be called when the
-    ///  input data is known to be valid. Will generate a Transfer event.
+    /// @dev An internal method that creates a new license and stores it. Will generate a Transfer event.
     /// @param _licenseTypeId The ID of the license type.
-    /// @param _owner The inital owner of this license, must be non-zero.
     /// @param _cutOnResale The cut wanted to go back to license creator on resale.
-    function _createLicense(uint32 _licenseTypeId, address _owner, uint256 _cutOnResale) internal returns (uint) {
+    /// @param _owner The inital owner of this license, must be non-zero.
+    function _createLicense(uint32 _licenseTypeId, uint256 _cutOnResale, address _owner) internal returns (uint) {
         require(_cutOnResale <= 10000);
 
         // TODO: CHECK FOR LICENSE TYPE ID : ID EXISTS CREATOR IS OWNER OF THE ID
@@ -129,8 +127,8 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
         require(_to != address(0));
 
         // Disallow transfers to this contract to prevent accidental misuse.
-        // The contract should never own any licenses.
-        require(_to != address(this));
+        // The contract should never own any licenses. (Just at the moment for testing purpose)
+        // require(_to != address(this));
 
         // You can only send your own license.
         require(_owns(msg.sender, _tokenId));
@@ -167,10 +165,9 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
         // Safety check to prevent against an unexpected 0x0 default.
         require(_to != address(0));
 
-        /*// Disallow transfers to this contract to prevent accidental misuse.
-        // The contract should never own any licenses (except very briefly
-        // after a gen0 cat is created and before it goes on auction).
-        require(_to != address(this));*/
+        // Disallow transfers to this contract to prevent accidental misuse.
+        // The contract should never own any licenses. (Just at the moment for testing purpose)
+        //require(_to != address(this));
 
         // Check for approval and valid ownership
         require(_approvedFor(msg.sender, _tokenId));
@@ -183,7 +180,7 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
     /// @notice Returns the total number of Licenses currently in existence.
     /// @dev Required for ERC-721 compliance.
     function totalSupply() public view returns (uint) {
-        return licenses.length - 1;
+        return licenses.length;
     }
 
     /// @notice Returns the address currently assigned ownership of a given License.
@@ -205,6 +202,18 @@ contract LicenseForAllCore is LicenseForAllOwnership {
 
         // the creator of the contract is the owner
         owner = msg.sender;
+
+        // This func is be called in contract constructor to generate some testing licenses data, must be removed before live deployment (ofc!!)
+        TestingStuffGeneration();
+    }
+
+    /// @dev This func will be called in contract constructor to generate some testing licenses data, must be removed before live deployment (ofc!!)
+    function TestingStuffGeneration() internal {
+        _createLicense(0, 0, this);
+        _createLicense(0, 0, this);
+        _createLicense(0, 0, this);
+        _createLicense(1, 1, this);
+        _createLicense(1, 1000, this);
     }
 
     /// @dev Used to mark the smart contract as upgraded, in case there is a serious
@@ -227,12 +236,12 @@ contract LicenseForAllCore is LicenseForAllOwnership {
         returns (
         uint32 licenseTypeId,
         uint64 creationTime,
-        uint32 cutOnResale
+        uint256 cutOnResale
     ) {
         License storage lic = licenses[_id];
 
         licenseTypeId = uint32(lic.licenseTypeId);
         creationTime = uint64(lic.creationTime);
-        cutOnResale = uint32(lic.cutOnResale);
+        cutOnResale = uint256(lic.cutOnResale);
     }
 }
