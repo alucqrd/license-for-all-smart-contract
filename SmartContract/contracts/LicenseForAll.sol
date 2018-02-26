@@ -13,7 +13,9 @@ contract LicenseForAllBase {
     struct License {
         uint32 licenseTypeId;
         uint64 creationTime;
-        uint32 cutOnResale;
+        // Cut creator takes on each resale, measured in basis points (1/100 of a percent).
+        // Values 0-10,000 map to 0%-100%
+        uint256 cutOnResale;
     }
 
     // Array containing every licenses
@@ -42,8 +44,6 @@ contract LicenseForAllBase {
             ownershipTokenCount[_from]--;
         }*/
 
-        // TODO : HANDLE THE MINIMUM RESELLING PRICE AND CUT TO CREATOR HERE !!!
-
         // Emit the transfer event.
         Transfer(_from, _to, _tokenId);
     }
@@ -54,8 +54,10 @@ contract LicenseForAllBase {
     /// @param _licenseTypeId The ID of the license type.
     /// @param _owner The inital owner of this license, must be non-zero.
     /// @param _cutOnResale The cut wanted to go back to license creator on resale.
-    function _createLicense(uint32 _licenseTypeId, address _owner, uint32 _cutOnResale) internal returns (uint) {
-        
+    function _createLicense(uint32 _licenseTypeId, address _owner, uint256 _cutOnResale) internal returns (uint) {
+        require(_cutOnResale <= 10000);
+
+        // TODO: CHECK FOR LICENSE TYPE ID : ID EXISTS CREATOR IS OWNER OF THE ID
         License memory _license = License({
             licenseTypeId: _licenseTypeId,
             creationTime: uint64(now),
@@ -216,17 +218,6 @@ contract LicenseForAllCore is LicenseForAllOwnership {
         newContractAddress = _v2Address;
         ContractUpgrade(_v2Address);
     }
-
-
-    /// @notice No tipping!
-    /// @dev Reject all Ether from being sent here, unless it's from one of the
-    ///  two auction contracts. (Hopefully, we can prevent user accidents.)
-    /*function() external payable {
-        require(
-            msg.sender == address(saleAuction) ||
-            msg.sender == address(siringAuction)
-        );
-    }*/
 
     /// @notice Returns all the relevant information about a specific license.
     /// @param _id The ID of the license of interest.
