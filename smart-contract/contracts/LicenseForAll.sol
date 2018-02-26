@@ -22,7 +22,8 @@ contract LicenseForAllBase {
 
     // Array containing every licenses
     License[] licenses;
-    // Array containing every license type id
+
+    // Array containing every license type id with creator address associated
     address[] licenseTypeIdToCreator;
 
     // Mapping of each license and user association
