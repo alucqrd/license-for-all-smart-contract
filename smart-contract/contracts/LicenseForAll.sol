@@ -1,4 +1,3 @@
-
 pragma solidity ^0.4.18;
 import 'zeppelin-solidity/contracts/lifecycle/Pausable.sol';
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
@@ -26,7 +25,7 @@ contract LicenseForAllBase {
     License[] licenses;
 
     // Array containing every license type id with creator address associated.
-    address[] licenseTypeIdToCreator;
+    address[] public licenseTypeIdToCreator;
 
     // Mapping of each license and user association.
     mapping (uint256 => address) public licenseIndexToOwner;
@@ -74,8 +73,8 @@ contract LicenseForAllBase {
         require(_cutOnResale <= 10000);
         // Check that license type id exists.
         require(_licenseTypeId < licenseTypeIdToCreator.length);
-        // Check that the future owner of the new license is the creator.
-        require(licenseTypeIdToCreator[_licenseTypeId] == _owner);
+        // Check that the sender of the transaction of the new license is the creator.
+        require(licenseTypeIdToCreator[_licenseTypeId] == msg.sender);
 
         License memory _license = License({
             licenseTypeId: _licenseTypeId,
@@ -116,7 +115,7 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
     /// @param _claimant the address we are confirming license is approved for. If it is set to 0, it means that anybody can call transferFrom with asked price.
     /// @param _tokenId license id, only valid when > 0
     function _approvedFor(address _claimant, uint256 _tokenId, uint256 _price) internal view returns (bool) {
-        return ((licenseIndexToApproved[_tokenId].to == _claimant || licenseIndexToApproved[_tokenId].to == 0)  && licenseIndexToApproved[_tokenId].price <= _price);
+        return ((licenseIndexToApproved[_tokenId].to == _claimant || licenseIndexToApproved[_tokenId].to == 0) && licenseIndexToApproved[_tokenId].price <= _price);
     }
 
     /// @dev Marks an address as being approved for transferFrom(), overwriting any previous
@@ -183,7 +182,9 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
         require(_owns(_from, _tokenId));
 
         // Compute and send cut to license creator.
-        uint256 cut = msg.value.mul(licenses[_tokenId].cutOnResale.div(10000));
+        //uint256 cut = msg.value.mul(licenses[_tokenId].cutOnResale.div(10000));
+        uint256 cut = msg.value * licenses[_tokenId].cutOnResale / 10000;
+        
         licenseIndexToOwner[_tokenId].transfer(cut);
 
         // Transfer payment to seller.
@@ -216,21 +217,6 @@ contract LicenseForAllCore is LicenseForAllOwnership {
 
         // The creator of the contract is the owner.
         owner = msg.sender;
-
-        // This func is be called in contract constructor to generate some testing licenses data, must be removed before live deployment (ofc!!)
-        _testingStuff();
-    }
-
-    /// @dev This func will be called in contract constructor to generate some testing licenses data, must be removed before live deployment (ofc!!)
-    function _testingStuff() internal {
-        uint256 firstLicenseType = _createLicenseTypeId(this);
-        uint256 secondLicenseType = _createLicenseTypeId(this);
-
-        _createLicense(firstLicenseType, 0, this);
-        _createLicense(firstLicenseType, 0, this);
-        _createLicense(firstLicenseType, 0, this);
-        _createLicense(secondLicenseType, 1, this);
-        _createLicense(secondLicenseType, 5000, this);
     }
 
     /// @dev Used to mark the smart contract as upgraded, in case there is a serious
@@ -247,16 +233,16 @@ contract LicenseForAllCore is LicenseForAllOwnership {
 
     /// @dev An external method that creates a new license type id and associates it with its creator.
     /// @param _creator The address of the creator.
-    function createLicenseTypeId(address _creator) external onlyOwner {
-        _createLicenseTypeId(_creator);
+    function createLicenseTypeId(address _creator) external onlyOwner returns (uint256 newLicenseTypeId) {
+        newLicenseTypeId = _createLicenseTypeId(_creator);
     }
 
     /// @dev An external method that creates a new license and stores it.
     /// @param _licenseTypeId The ID of the license type.
     /// @param _cutOnResale The cut wanted to go back to license creator on resale.
     /// @param _owner The inital owner of this license, must be non-zero.
-    function createLicense(uint32 _licenseTypeId, uint256 _cutOnResale, address _owner) external {
-        _createLicense(_licenseTypeId, _cutOnResale, _owner);
+    function createLicense(uint32 _licenseTypeId, uint256 _cutOnResale, address _owner) external returns (uint256 newLicenseId) {
+        return _createLicense(_licenseTypeId, _cutOnResale, _owner);
     }
 
     /// @notice Returns all the relevant information about a specific license.
