@@ -6,6 +6,8 @@ contract LicenseForAllBase {
     event ContractUpgrade(address newContract);
     event Transfer(address from, address to, uint256 tokenId);
     event Approval(address owner, address approved, uint256 tokenId, uint256 price);
+    event LicenseTypeCreation(uint256 licenseTypeId, address creator);
+    event LicenseCreation(uint256 licenseTypeId, uint256 licenseId);
 
     struct License {
         uint256 licenseTypeId;
@@ -60,6 +62,8 @@ contract LicenseForAllBase {
         uint256 newLicenseTypeId = licenseTypeIdToCreator.push(_creator) - 1;
         // Let's just be 100% sure we never let this happen.
         require(newLicenseTypeId == uint256(uint32(newLicenseTypeId)));
+        // Emit the license type creation event.
+        LicenseTypeCreation(newLicenseTypeId, _creator);
         // Return the license type id.
         return newLicenseTypeId;
     }
@@ -76,16 +80,21 @@ contract LicenseForAllBase {
         // Check that the sender of the transaction of the new license is the creator.
         require(licenseTypeIdToCreator[_licenseTypeId] == msg.sender);
 
+        // Generate license object in memory
         License memory _license = License({
             licenseTypeId: _licenseTypeId,
             creationTime: uint64(now),
             cutOnResale: _cutOnResale
         });
 
+        // Add it to mapping
         uint256 newLicenseId = licenses.push(_license) - 1;
 
         // Let's just be 100% sure we never let this happen.
         require(newLicenseId == uint256(uint32(newLicenseId)));
+
+        // Emit license creation event.
+        LicenseCreation(_licenseTypeId, newLicenseId);
 
         // This will assign ownership, and also emit the Transfer event.
         _transfer(0, _owner, newLicenseId);
@@ -95,7 +104,6 @@ contract LicenseForAllBase {
 }
 
 contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
-  using SafeMath for uint256;
 
   string public constant name = "LicenseForAll";
   string public constant symbol = "LFA";
@@ -123,6 +131,7 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
     function _approve(uint256 _tokenId, address _to, uint256 _price) internal {
         address owner = ownerOf(_tokenId);
         require(_to != owner);
+
         // Remove any previous sale approval associated to the license id.
         delete licenseIndexToApproved[_tokenId];
 
@@ -226,7 +235,6 @@ contract LicenseForAllCore is LicenseForAllOwnership {
     ///  be paused indefinitely if such an upgrade takes place.)
     /// @param _v2Address new address
     function setNewAddress(address _v2Address) external onlyOwner whenPaused {
-        // See README.md for updgrade plan.
         newContractAddress = _v2Address;
         ContractUpgrade(_v2Address);
     }

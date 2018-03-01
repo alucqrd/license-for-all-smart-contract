@@ -1,4 +1,3 @@
-import 'zeppelin-solidity/test/helpers/expectThrow';
 var LicenseForAll = artifacts.require("LicenseForAllCore");
 
 contract('LicenseForAll', async (accounts) => {
@@ -12,8 +11,12 @@ contract('LicenseForAll', async (accounts) => {
         let instance = await LicenseForAll.deployed();
         await instance.createLicense(0, 2000, accounts[1], {from: accounts[1]});
         await instance.createLicense(0, 2000, accounts[2], {from: accounts[1]});
+        await instance.createLicense(0, 2000, accounts[1], {from: accounts[1]});
+        //expectThrow(await instance.createLicense(0, 2000, accounts[1], {from: accounts[2]}));
+        //expectThrow(await instance.createLicense(0, 15000, accounts[1], {from: accounts[1]}));
         assert.equal(await instance.licenseIndexToOwner.call(0), accounts[1], "accounts[1] is not owner of license id 0");
-        assert.equal(await instance.licenseIndexToOwner.call(1), accounts[2], "accounts[1] is not owner of license id 1");
+        assert.equal(await instance.licenseIndexToOwner.call(1), accounts[2], "accounts[2] is not owner of license id 1");
+        assert.equal(await instance.licenseIndexToOwner.call(2), accounts[1], "accounts[1] is not owner of license id 2");
     });
 
     it("Should be able to pause/unpause contract", async () => {
@@ -29,6 +32,7 @@ contract('LicenseForAll', async (accounts) => {
     it("Should be able to transfert a license from accounts[1] to accounts[3]", async () => {
         let instance = await LicenseForAll.deployed();
         await instance.approve(accounts[3], 0, "1000000000000000000", {from: accounts[1]});
+        //expectThrow(await instance.approve(accounts[3], 0, "1000000000000000000", {from: accounts[3]}));
         let acc3balancebefore = web3.eth.getBalance(accounts[3]);
         let acc1balancebefore = web3.eth.getBalance(accounts[1]);
         let tx = await instance.transferFrom(accounts[1], accounts[3], 0, {from: accounts[3], value: "1000000000000000000"});
@@ -58,11 +62,19 @@ contract('LicenseForAll', async (accounts) => {
         assert.equal(diffAcc1, 200000000000000000, "Amount transfered didn't match price for accounts[1]");
     });
 
-    // Tests that need to fail (waiting for installing babel and being able to use expectThrow from zeppelin)
-    it("Only contract owner should be able to generate a license id", async () => {
+    it("accounts[1] should be able to approve for accounts[2] and then approve for accounts[3]", async () => {
         let instance = await LicenseForAll.deployed();
-        expectThrow(await instance.createLicenseTypeId(accounts[1], {from: accounts[1]}));
+        await instance.approve(accounts[2], 2, "2000000000000000000", {from: accounts[1]});
+        await instance.approve(accounts[3], 2, "1000000000000000000", {from: accounts[1]});
+        let acc3balancebefore = web3.eth.getBalance(accounts[3]);
+        let acc1balancebefore = web3.eth.getBalance(accounts[1]);
+        //expectThrow(await instance.transferFrom(accounts[1], accounts[3], 2, {from: accounts[2], value: "2000000000000000000"}));
+        let tx = await instance.transferFrom(accounts[1], accounts[3], 2, {from: accounts[3], value: "1000000000000000000"});
+        let acc3balanceafter = web3.eth.getBalance(accounts[3]);
+        let acc1balanceafter = web3.eth.getBalance(accounts[1]);
+        let diffAcc3 = Math.round((acc3balancebefore - acc3balanceafter - (tx.receipt.gasUsed * 100000000000))/100000)*100000;
+        let diffAcc1 = acc1balanceafter - acc1balancebefore;
+        assert.equal(diffAcc3, 1000000000000000000, "Amount transfered didn't match price for accounts[3]");
+        assert.equal(diffAcc1, 1000000000000000000, "Amount transfered didn't match price for accounts[1]");
     });
-
-
 });
