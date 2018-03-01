@@ -174,8 +174,8 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
         require(_to != address(0));
 
         // Disallow transfers to this contract to prevent accidental misuse.
-        // The contract should never own any licenses. (Just at the moment for testing purpose)
-        //require(_to != address(this));
+        // The contract should never own any licenses.
+        require(_to != address(this));
 
         // Check for approval and valid ownership.
         require(_approvedFor(msg.sender, _tokenId, msg.value));
@@ -185,7 +185,7 @@ contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
         //uint256 cut = msg.value.mul(licenses[_tokenId].cutOnResale.div(10000));
         uint256 cut = msg.value * licenses[_tokenId].cutOnResale / 10000;
         
-        licenseIndexToOwner[_tokenId].transfer(cut);
+        licenseTypeIdToCreator[licenses[_tokenId].licenseTypeId].transfer(cut);
 
         // Transfer payment to seller.
         _from.transfer(msg.value - cut);
@@ -242,7 +242,7 @@ contract LicenseForAllCore is LicenseForAllOwnership {
     /// @param _cutOnResale The cut wanted to go back to license creator on resale.
     /// @param _owner The inital owner of this license, must be non-zero.
     function createLicense(uint32 _licenseTypeId, uint256 _cutOnResale, address _owner) external returns (uint256 newLicenseId) {
-        return _createLicense(_licenseTypeId, _cutOnResale, _owner);
+        newLicenseId = _createLicense(_licenseTypeId, _cutOnResale, _owner);
     }
 
     /// @notice Returns all the relevant information about a specific license.
