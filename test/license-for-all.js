@@ -77,4 +77,9 @@ contract('LicenseForAll', async (accounts) => {
         assert.equal(diffAcc3, 1000000000000000000, "Amount transfered didn't match price for accounts[3]");
         assert.equal(diffAcc1, 1000000000000000000, "Amount transfered didn't match price for accounts[1]");
     });
+
+    /*it("Reject any ether sent to contract", async () => {
+        let instance = await LicenseForAll.deployed();
+        expectThrow(await instance.sendTransaction({from: accounts[2], value: "2000000000000000000"}));
+    });*/
 });

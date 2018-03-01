@@ -1,13 +1,18 @@
 pragma solidity ^0.4.18;
-import 'zeppelin-solidity/contracts/lifecycle/Pausable.sol';
-import 'zeppelin-solidity/contracts/math/SafeMath.sol';
 
 contract LicenseForAllBase {
     event ContractUpgrade(address newContract);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event Transfer(address from, address to, uint256 tokenId);
     event Approval(address owner, address approved, uint256 tokenId, uint256 price);
     event LicenseTypeCreation(uint256 licenseTypeId, address creator);
     event LicenseCreation(uint256 licenseTypeId, uint256 licenseId);
+
+    // Who deployed the contract
+    address public owner;
+
+    // @dev Keeps track whether the contract is paused. When that is true, most actions are blocked
+    bool public paused = false;
 
     struct License {
         uint256 licenseTypeId;
@@ -101,9 +106,59 @@ contract LicenseForAllBase {
 
         return newLicenseId;
     }
+
+    /*** Ownable functionality from OpenZeppelin ***/
+
+    /**
+    * @dev Throws if called by any account other than the owner.
+    */
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+
+    /**
+    * @dev Allows the current owner to transfer control of the contract to a newOwner.
+    * @param newOwner The address to transfer ownership to.
+    */
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0));
+        OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    /*** Pausable functionality from OpenZeppelin ***/
+
+    /// @dev Modifier to allow actions only when the contract IS NOT paused
+    modifier whenNotPaused() {
+        require(!paused);
+        _;
+    }
+
+    /// @dev Modifier to allow actions only when the contract IS paused
+    modifier whenPaused {
+        require(paused);
+        _;
+    }
+
+    /// @dev Called by any "C-level" role to pause the contract. Used only when
+    ///  a bug or exploit is detected and we need to limit damage.
+    function pause() external onlyOwner whenNotPaused {
+        paused = true;
+    }
+
+    /// @dev Unpauses the smart contract. Can only be called by the CEO, since
+    ///  one reason we may pause the contract is when CFO or COO accounts are
+    ///  compromised.
+    /// @notice This is public rather than external so it can be called by
+    ///  derived contracts.
+    function unpause() public onlyOwner whenPaused {
+        // can't unpause if contract was upgraded
+        paused = false;
+    }
 }
 
-contract LicenseForAllOwnership is LicenseForAllBase, Pausable {
+contract LicenseForAllOwnership is LicenseForAllBase {
 
   string public constant name = "LicenseForAll";
   string public constant symbol = "LFA";
@@ -221,7 +276,8 @@ contract LicenseForAllCore is LicenseForAllOwnership {
     address public newContractAddress;
 
     function LicenseForAllCore() public {
-        // Starts paused.
+
+        // Start contract paused.
         paused = true;
 
         // The creator of the contract is the owner.
@@ -237,6 +293,12 @@ contract LicenseForAllCore is LicenseForAllOwnership {
     function setNewAddress(address _v2Address) external onlyOwner whenPaused {
         newContractAddress = _v2Address;
         ContractUpgrade(_v2Address);
+    }
+
+    /// @notice No tipping!
+    /// @dev Reject all Ether from being sent here. (Hopefully, we can prevent user accidents.)
+    function() external payable {
+        revert();
     }
 
     /// @dev An external method that creates a new license type id and associates it with its creator.
