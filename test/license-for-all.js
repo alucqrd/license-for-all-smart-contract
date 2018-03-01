@@ -1,3 +1,4 @@
+import expectThrow from "./helpers/expectThrow";
 var LicenseForAll = artifacts.require("LicenseForAllCore");
 
 contract('LicenseForAll', async (accounts) => {
@@ -12,8 +13,8 @@ contract('LicenseForAll', async (accounts) => {
         await instance.createLicense(0, 2000, accounts[1], {from: accounts[1]});
         await instance.createLicense(0, 2000, accounts[2], {from: accounts[1]});
         await instance.createLicense(0, 2000, accounts[1], {from: accounts[1]});
-        //expectThrow(await instance.createLicense(0, 2000, accounts[1], {from: accounts[2]}));
-        //expectThrow(await instance.createLicense(0, 15000, accounts[1], {from: accounts[1]}));
+        await expectThrow(instance.createLicense(0, 2000, accounts[1], {from: accounts[2]}));
+        await expectThrow(instance.createLicense(0, 15000, accounts[1], {from: accounts[1]}));
         assert.equal(await instance.licenseIndexToOwner.call(0), accounts[1], "accounts[1] is not owner of license id 0");
         assert.equal(await instance.licenseIndexToOwner.call(1), accounts[2], "accounts[2] is not owner of license id 1");
         assert.equal(await instance.licenseIndexToOwner.call(2), accounts[1], "accounts[1] is not owner of license id 2");
@@ -32,7 +33,7 @@ contract('LicenseForAll', async (accounts) => {
     it("Should be able to transfert a license from accounts[1] to accounts[3]", async () => {
         let instance = await LicenseForAll.deployed();
         await instance.approve(accounts[3], 0, "1000000000000000000", {from: accounts[1]});
-        //expectThrow(await instance.approve(accounts[3], 0, "1000000000000000000", {from: accounts[3]}));
+        await expectThrow(instance.approve(accounts[3], 0, "1000000000000000000", {from: accounts[3]}));
         let acc3balancebefore = web3.eth.getBalance(accounts[3]);
         let acc1balancebefore = web3.eth.getBalance(accounts[1]);
         let tx = await instance.transferFrom(accounts[1], accounts[3], 0, {from: accounts[3], value: "1000000000000000000"});
@@ -68,7 +69,7 @@ contract('LicenseForAll', async (accounts) => {
         await instance.approve(accounts[3], 2, "1000000000000000000", {from: accounts[1]});
         let acc3balancebefore = web3.eth.getBalance(accounts[3]);
         let acc1balancebefore = web3.eth.getBalance(accounts[1]);
-        //expectThrow(await instance.transferFrom(accounts[1], accounts[3], 2, {from: accounts[2], value: "2000000000000000000"}));
+        await expectThrow(instance.transferFrom(accounts[1], accounts[3], 2, {from: accounts[2], value: "2000000000000000000"}));
         let tx = await instance.transferFrom(accounts[1], accounts[3], 2, {from: accounts[3], value: "1000000000000000000"});
         let acc3balanceafter = web3.eth.getBalance(accounts[3]);
         let acc1balanceafter = web3.eth.getBalance(accounts[1]);
@@ -78,8 +79,8 @@ contract('LicenseForAll', async (accounts) => {
         assert.equal(diffAcc1, 1000000000000000000, "Amount transfered didn't match price for accounts[1]");
     });
 
-    /*it("Reject any ether sent to contract", async () => {
+    it("Reject any amount of ether sent to the contract", async () => {
         let instance = await LicenseForAll.deployed();
-        expectThrow(await instance.sendTransaction({from: accounts[2], value: "2000000000000000000"}));
-    });*/
+        await expectThrow(instance.sendTransaction({from: accounts[2], value: "2000000000000000000"}));
+    });
 });
