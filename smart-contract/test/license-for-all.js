@@ -1,3 +1,4 @@
+import 'zeppelin-solidity/test/helpers/expectThrow';
 var LicenseForAll = artifacts.require("LicenseForAllCore");
 
 contract('LicenseForAll', async (accounts) => {
@@ -12,7 +13,7 @@ contract('LicenseForAll', async (accounts) => {
         await instance.createLicense(0, 2000, accounts[1], {from: accounts[1]});
         await instance.createLicense(0, 2000, accounts[2], {from: accounts[1]});
         assert.equal(await instance.licenseIndexToOwner.call(0), accounts[1], "accounts[1] is not owner of license id 0");
-        assert.equal(await instance.licenseIndexToOwner.call(1), accounts[2], "accounts[1] is not owner of license id 2");
+        assert.equal(await instance.licenseIndexToOwner.call(1), accounts[2], "accounts[1] is not owner of license id 1");
     });
 
     it("Should be able to pause/unpause contract", async () => {
@@ -58,10 +59,10 @@ contract('LicenseForAll', async (accounts) => {
     });
 
     // Tests that need to fail (waiting for installing babel and being able to use expectThrow from zeppelin)
-    /*it("Only contract owner should be able to generate a license id", async () => {
+    it("Only contract owner should be able to generate a license id", async () => {
         let instance = await LicenseForAll.deployed();
         expectThrow(await instance.createLicenseTypeId(accounts[1], {from: accounts[1]}));
-    });*/
+    });
 
 
 });
