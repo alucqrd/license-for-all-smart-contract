@@ -40,21 +40,10 @@ contract LicenseForAllBase {
     // Mapping from license ID to approved address.
     mapping (uint256 => SaleApproval) public licenseIndexToApproved;
 
-    // @dev A mapping from owner address to count of tokens that address owns.
-    //  Used internally inside balanceOf() to resolve ownership count.
-    mapping (address => uint256) ownershipTokenCount;
-
     /// @dev Assigns ownership of a specific License to an address.
     function _transfer(address _from, address _to, uint256 _tokenId) internal {
-        // Since the number of licenses is capped to 2^32 we can't overflow this.
-        ownershipTokenCount[_to]++;
         // transfer ownership.
         licenseIndexToOwner[_tokenId] = _to;
-
-        // When creating new licenses _from is 0x0, but we can't account that address.
-        if (_from != address(0)) {
-            ownershipTokenCount[_from]--;
-        }
 
         // Emit the transfer event.
         Transfer(_from, _to, _tokenId);
@@ -204,12 +193,6 @@ contract LicenseForAllOwnership is LicenseForAllBase {
         Approval(owner, _to, _tokenId, _price);
     }
 
-    /// @notice Returns the number of Licenses owned by a specific address.
-    /// @param _owner The owner address to check.
-    function balanceOf(address _owner) public view returns (uint256 count) {
-        return ownershipTokenCount[_owner];
-    }
-    
     /// @notice Grant another address the right to transfer a specific License via
     ///  transferFrom().
     /// @param _to The address to be granted transfer approval. Pass address(0) to
@@ -259,7 +242,12 @@ contract LicenseForAllOwnership is LicenseForAllBase {
     }
 
     /// @notice Returns the total number of Licenses currently in existence.
-    function totalSupply() public view returns (uint) {
+    function getLicenseTypeIdCount() public view returns (uint) {
+        return licenseTypeIdToCreator.length;
+    }
+
+    /// @notice Returns the total number of Licenses currently in existence.
+    function getLicenseCount() public view returns (uint) {
         return licenses.length;
     }
 
