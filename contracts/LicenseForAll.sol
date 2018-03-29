@@ -147,14 +147,22 @@ contract LicenseForAllBase {
     }
 }
 
-contract LicenseForAllOwnership is LicenseForAllBase {
+contract LicenseForAllCore is LicenseForAllBase {
 
-  string public constant name = "LicenseForAll";
-  string public constant symbol = "LFA";
+    string public constant name = "LicenseForAll";
+    string public constant symbol = "LFA";
 
-    // Internal utility functions: These functions all assume that their input arguments
-    // are valid. We leave it to public methods to sanitize their inputs and follow
-    // the required logic.
+    // Set in case the core contract is broken and an upgrade is required.
+    address public newContractAddress;
+
+    function LicenseForAllCore() public {
+
+        // Start contract paused.
+        paused = true;
+
+        // The creator of the contract is the owner.
+        owner = msg.sender;
+    }
 
     /// @dev Checks if a given address is the current owner of a particular License.
     /// @param _claimant the address we are validating against.
@@ -170,11 +178,19 @@ contract LicenseForAllOwnership is LicenseForAllBase {
         return ((licenseIndexToApproved[_tokenId].to == _claimant || licenseIndexToApproved[_tokenId].to == 0) && licenseIndexToApproved[_tokenId].price <= _price);
     }
 
-    /// @dev Marks an address as being approved for transferFrom(), overwriting any previous
-    ///  approval. Setting _approved to address(0) clears all transfer approval.
-    function _approve(uint256 _tokenId, address _to, uint256 _price) internal {
-        address owner = ownerOf(_tokenId);
-        require(_to != owner);
+    /// @notice Grant another address the right to transfer a specific License via
+    ///  transferFrom().
+    /// @param _to The address to be granted transfer approval. Pass address(0) to
+    ///  clear all approvals.
+    /// @param _tokenId The ID of the License that can be transferred if this call succeeds.
+    /// @param _price The price agreed, so when transferFrom is called, we check that the transaction has the right amount of funds.
+    function approve(address _to, uint256 _tokenId, uint256 _price) external whenNotPaused {
+        // Safety check to prevent against an unexpected 0x0 default.
+        require(_to != address(0));
+        // Only an owner can grant transfer approval.
+        require(_owns(msg.sender, _tokenId));
+        // Owner can't approve to himself
+        require(msg.sender != _to);
 
         // Remove any previous sale approval associated to the license id.
         delete licenseIndexToApproved[_tokenId];
@@ -188,23 +204,6 @@ contract LicenseForAllOwnership is LicenseForAllBase {
 
         // Associate sale approval data structure to license id.
         licenseIndexToApproved[_tokenId] = approval;
-
-        // Emit Approval event.
-        Approval(owner, _to, _tokenId, _price);
-    }
-
-    /// @notice Grant another address the right to transfer a specific License via
-    ///  transferFrom().
-    /// @param _to The address to be granted transfer approval. Pass address(0) to
-    ///  clear all approvals.
-    /// @param _tokenId The ID of the License that can be transferred if this call succeeds.
-    /// @param _price The price agreed, so when transferFrom is called, we check that the transaction has the right amount of funds.
-    function approve(address _to, uint256 _tokenId, uint256 _price) external whenNotPaused {
-        // Only an owner can grant transfer approval.
-        require(_owns(msg.sender, _tokenId));
-
-        // Register the approval (replacing any previous approval).
-        _approve(_tokenId, _to, _price);
 
         // Emit approval event.
         Approval(msg.sender, _to, _tokenId, _price);
@@ -224,7 +223,7 @@ contract LicenseForAllOwnership is LicenseForAllBase {
         // The contract should never own any licenses.
         require(_to != address(this));
 
-        // Check for approval and valid ownership.
+        // Check for approval, valid ownership and valid price.
         require(_approvedFor(msg.sender, _tokenId, msg.value));
         require(_owns(_from, _tokenId));
 
@@ -239,6 +238,38 @@ contract LicenseForAllOwnership is LicenseForAllBase {
 
         // Reassign ownership (also clears pending approvals and emits Transfer event).
         _transfer(_from, _to, _tokenId);
+    }
+
+    /// @dev An external method that creates a new license type id and associates it with its creator.
+    /// @param _creator The address of the creator.
+    function createLicenseTypeId(address _creator) external onlyOwner returns (uint256 newLicenseTypeId) {
+        newLicenseTypeId = _createLicenseTypeId(_creator);
+    }
+
+    /// @dev An external method that creates a new license and stores it.
+    /// @param _licenseTypeId The ID of the license type.
+    /// @param _cutOnResale The cut wanted to go back to license creator on resale.
+    /// @param _owner The inital owner of this license, must be non-zero.
+    function createLicense(uint32 _licenseTypeId, uint256 _cutOnResale, address _owner) external returns (uint256 newLicenseId) {
+        newLicenseId = _createLicense(_licenseTypeId, _cutOnResale, _owner);
+    }
+
+
+    /// @notice Returns all the relevant information about a specific license.
+    /// @param _id The ID of the license of interest.
+    function getLicense(uint256 _id)
+        external
+        view
+        returns (
+        uint256 licenseTypeId,
+        uint64 creationTime,
+        uint256 cutOnResale
+    ) {
+        License storage lic = licenses[_id];
+
+        licenseTypeId = uint256(lic.licenseTypeId);
+        creationTime = uint64(lic.creationTime);
+        cutOnResale = uint256(lic.cutOnResale);
     }
 
     /// @notice Returns the total number of Licenses currently in existence.
@@ -257,20 +288,6 @@ contract LicenseForAllOwnership is LicenseForAllBase {
         require(owner != address(0));
         return owner;
     }
-}
-
-contract LicenseForAllCore is LicenseForAllOwnership {
-    // Set in case the core contract is broken and an upgrade is required.
-    address public newContractAddress;
-
-    function LicenseForAllCore() public {
-
-        // Start contract paused.
-        paused = true;
-
-        // The creator of the contract is the owner.
-        owner = msg.sender;
-    }
 
     /// @dev Used to mark the smart contract as upgraded, in case there is a serious
     ///  breaking bug. This method does nothing but keep track of the new contract and
@@ -287,36 +304,5 @@ contract LicenseForAllCore is LicenseForAllOwnership {
     /// @dev Reject all Ether from being sent here. (Hopefully, we can prevent user accidents.)
     function() external payable {
         revert();
-    }
-
-    /// @dev An external method that creates a new license type id and associates it with its creator.
-    /// @param _creator The address of the creator.
-    function createLicenseTypeId(address _creator) external onlyOwner returns (uint256 newLicenseTypeId) {
-        newLicenseTypeId = _createLicenseTypeId(_creator);
-    }
-
-    /// @dev An external method that creates a new license and stores it.
-    /// @param _licenseTypeId The ID of the license type.
-    /// @param _cutOnResale The cut wanted to go back to license creator on resale.
-    /// @param _owner The inital owner of this license, must be non-zero.
-    function createLicense(uint32 _licenseTypeId, uint256 _cutOnResale, address _owner) external returns (uint256 newLicenseId) {
-        newLicenseId = _createLicense(_licenseTypeId, _cutOnResale, _owner);
-    }
-
-    /// @notice Returns all the relevant information about a specific license.
-    /// @param _id The ID of the license of interest.
-    function getLicense(uint256 _id)
-        external
-        view
-        returns (
-        uint256 licenseTypeId,
-        uint64 creationTime,
-        uint256 cutOnResale
-    ) {
-        License storage lic = licenses[_id];
-
-        licenseTypeId = uint256(lic.licenseTypeId);
-        creationTime = uint64(lic.creationTime);
-        cutOnResale = uint256(lic.cutOnResale);
     }
 }
